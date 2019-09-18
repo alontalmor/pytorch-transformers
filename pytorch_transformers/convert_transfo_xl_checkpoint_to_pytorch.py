@@ -26,7 +26,7 @@ import torch
 import pytorch_transformers.tokenization_transfo_xl as data_utils
 
 from pytorch_transformers import CONFIG_NAME, WEIGHTS_NAME
-from pytorch_transformers.modeling_transfo_xl import (TransfoXLConfig, TransfoXLLMHeadModel,
+from pytorch_transformers import (TransfoXLConfig, TransfoXLLMHeadModel,
                                                       load_tf_weights_in_transfo_xl)
 from pytorch_transformers.tokenization_transfo_xl import (CORPUS_NAME, VOCAB_FILES_NAMES)
 
@@ -75,7 +75,7 @@ def convert_transfo_xl_checkpoint_to_pytorch(tf_checkpoint_path,
         if transfo_xl_config_file == "":
             config = TransfoXLConfig()
         else:
-            config = TransfoXLConfig(transfo_xl_config_file)
+            config = TransfoXLConfig.from_json_file(transfo_xl_config_file)
         print("Building PyTorch model from configuration: {}".format(str(config)))
         model = TransfoXLLMHeadModel(config)
 

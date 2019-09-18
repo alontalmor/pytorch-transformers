@@ -21,7 +21,7 @@ from io import open
 
 import torch
 
-from pytorch_transformers.modeling_openai import (CONFIG_NAME, WEIGHTS_NAME,
+from pytorch_transformers import (CONFIG_NAME, WEIGHTS_NAME,
                                                      OpenAIGPTConfig,
                                                      OpenAIGPTModel,
                                                      load_tf_weights_in_openai_gpt)
@@ -35,7 +35,7 @@ def convert_openai_checkpoint_to_pytorch(openai_checkpoint_folder_path, openai_c
     if openai_config_file == "":
         config = OpenAIGPTConfig()
     else:
-        config = OpenAIGPTConfig(openai_config_file)
+        config = OpenAIGPTConfig.from_json_file(openai_config_file)
     model = OpenAIGPTModel(config)
 
     # Load weights from numpy

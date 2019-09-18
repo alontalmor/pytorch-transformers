@@ -21,7 +21,7 @@ from io import open
 
 import torch
 
-from pytorch_transformers.modeling_gpt2 import (CONFIG_NAME, WEIGHTS_NAME,
+from pytorch_transformers import (CONFIG_NAME, WEIGHTS_NAME,
                                                      GPT2Config,
                                                      GPT2Model,
                                                      load_tf_weights_in_gpt2)
@@ -35,7 +35,7 @@ def convert_gpt2_checkpoint_to_pytorch(gpt2_checkpoint_path, gpt2_config_file, p
     if gpt2_config_file == "":
         config = GPT2Config()
     else:
-        config = GPT2Config(gpt2_config_file)
+        config = GPT2Config.from_json_file(gpt2_config_file)
     model = GPT2Model(config)
 
     # Load weights from numpy

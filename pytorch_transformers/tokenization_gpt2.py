@@ -45,29 +45,33 @@ PRETRAINED_VOCAB_FILES_MAP = {
     {
         'gpt2': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-vocab.json",
         'gpt2-medium': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-medium-vocab.json",
+        'gpt2-large': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-large-vocab.json",
     },
     'merges_file':
     {
         'gpt2': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-merges.txt",
         'gpt2-medium': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-medium-merges.txt",
+        'gpt2-large': "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-large-merges.txt",
     },
 }
 
 PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES = {
     'gpt2': 1024,
     'gpt2-medium': 1024,
+    'gpt2-large': 1024,
 }
 
 @lru_cache()
 def bytes_to_unicode():
     """
-    Returns list of utf-8 byte and a corresponding list of unicode strings.
+    Returns list of utf-8 byte and a mapping to unicode strings.
+    We specifically avoids mapping to whitespace/control characters the bpe code barfs on.
+    
     The reversible bpe codes work on unicode strings.
     This means you need a large # of unicode characters in your vocab if you want to avoid UNKs.
     When you're at something like a 10B token dataset you end up needing around 5K for decent coverage.
     This is a signficant percentage of your normal, say, 32K bpe vocab.
     To avoid that, we want lookup tables between utf-8 bytes and unicode strings.
-    And avoids mapping to whitespace/control characters the bpe code barfs on.
     """
     _chr = unichr if sys.version_info[0] == 2 else chr
     bs = list(range(ord("!"), ord("~")+1))+list(range(ord("¡"), ord("¬")+1))+list(range(ord("®"), ord("ÿ")+1))
@@ -96,7 +100,10 @@ def get_pairs(word):
 class GPT2Tokenizer(PreTrainedTokenizer):
     """
     GPT-2 BPE tokenizer. Peculiarities:
-        - Byte-level BPE
+        - Byte-level Byte-Pair-Encoding
+        - Requires a space to start the input string => will add a space is there isn't.
+          As a consequence, this tokenizer `encode` and `decode` method will not conserve
+          the absence of a space at the beginning of a string: `tokenizer.decode(tokenizer.encode("Hello")) = " Hello"
     """
     vocab_files_names = VOCAB_FILES_NAMES
     pretrained_vocab_files_map = PRETRAINED_VOCAB_FILES_MAP
@@ -105,12 +112,14 @@ class GPT2Tokenizer(PreTrainedTokenizer):
     def __init__(self, vocab_file, merges_file, errors='replace', unk_token="<|endoftext|>",
                  bos_token="<|endoftext|>", eos_token="<|endoftext|>", **kwargs):
         super(GPT2Tokenizer, self).__init__(bos_token=bos_token, eos_token=eos_token, unk_token=unk_token, **kwargs)
+        self.max_len_single_sentence = self.max_len # no default special tokens - you can update this value if you add special tokens
+        self.max_len_sentences_pair = self.max_len # no default special tokens - you can update this value if you add special tokens
 
-        self.encoder = json.load(open(vocab_file))
-        self.decoder = {v:k for k,v in self.encoder.items()}
-        self.errors = errors # how to handle errors in decoding
+        self.encoder = json.load(open(vocab_file, encoding="utf-8"))
+        self.decoder = {v: k for k, v in self.encoder.items()}
+        self.errors = errors  # how to handle errors in decoding
         self.byte_encoder = bytes_to_unicode()
-        self.byte_decoder = {v:k for k, v in self.byte_encoder.items()}
+        self.byte_decoder = {v: k for k, v in self.byte_encoder.items()}
         bpe_data = open(merges_file, encoding='utf-8').read().split('\n')[1:-1]
         bpe_merges = [tuple(merge.split()) for merge in bpe_data]
         self.bpe_ranks = dict(zip(bpe_merges, range(len(bpe_merges))))
@@ -166,12 +175,13 @@ class GPT2Tokenizer(PreTrainedTokenizer):
 
     def _tokenize(self, text):
         """ Tokenize a string. """
+        text = ' ' + text  # GPT-2 (and RoBERTa) tokenizers need at least one space to begin the sentence with.
         bpe_tokens = []
         for token in re.findall(self.pat, text):
             if sys.version_info[0] == 2:
-                token = ''.join(self.byte_encoder[ord(b)] for b in token)
+                token = ''.join(self.byte_encoder[ord(b)] for b in token) # Maps all our bytes to unicode strings, avoiding controle tokens of the BPE (spaces in our case)
             else:
-                token = ''.join(self.byte_encoder[b] for b in token.encode('utf-8'))
+                token = ''.join(self.byte_encoder[b] for b in token.encode('utf-8')) # Maps all our bytes to unicode strings, avoiding controle tokens of the BPE (spaces in our case)
             bpe_tokens.extend(bpe_token for bpe_token in self.bpe(token).split(' '))
         return bpe_tokens
 

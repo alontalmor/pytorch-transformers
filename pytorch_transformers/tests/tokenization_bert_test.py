@@ -41,8 +41,8 @@ class BertTokenizationTest(CommonTestCases.CommonTokenizerTester):
         with open(self.vocab_file, "w", encoding='utf-8') as vocab_writer:
             vocab_writer.write("".join([x + "\n" for x in vocab_tokens]))
 
-    def get_tokenizer(self):
-        return BertTokenizer.from_pretrained(self.tmpdirname)
+    def get_tokenizer(self, **kwargs):
+        return BertTokenizer.from_pretrained(self.tmpdirname, **kwargs)
 
     def get_input_output_texts(self):
         input_text = u"UNwant\u00E9d,running"
@@ -50,7 +50,7 @@ class BertTokenizationTest(CommonTestCases.CommonTokenizerTester):
         return input_text, output_text
 
     def test_full_tokenizer(self):
-        tokenizer = BertTokenizer(self.vocab_file)
+        tokenizer = self.tokenizer_class(self.vocab_file)
 
         tokens = tokenizer.tokenize(u"UNwant\u00E9d,running")
         self.assertListEqual(tokens, ["un", "##want", "##ed", ",", "runn", "##ing"])
@@ -126,7 +126,7 @@ class BertTokenizationTest(CommonTestCases.CommonTokenizerTester):
         self.assertFalse(_is_punctuation(u" "))
 
     def test_sequence_builders(self):
-        tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+        tokenizer = self.tokenizer_class.from_pretrained("bert-base-uncased")
 
         text = tokenizer.encode("sequence builders")
         text_2 = tokenizer.encode("multi-sequence build")
